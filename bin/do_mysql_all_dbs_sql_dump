@@ -1,0 +1,30 @@
+#!/bin/sh
+# @author: Daniel (dmilith) Dettlaff
+
+mysql="Mysql"
+credentials="$*" # additional mysqldump options from stdin
+
+. "${HOME}/.profile"
+
+test ! -d "${HOME}/SQL-dumps" && mkdir -p "${HOME}/SQL-dumps"
+software_data="$(find ${HOME}/SoftwareData/${mysql}* -maxdepth 0 -type d ! -iname ".*")"
+current="$(pwd)"
+
+if [ -d "${software_data}/database" ]; then
+    cd ${software_data}/database
+    for dbdir in $(find ./ -maxdepth 1 -type d ! -iname ".*"); do
+        database_name="$(basename $dbdir)"
+        test ! -d "${HOME}/SQL-dumps/${database_name}" && mkdir -p "${HOME}/SQL-dumps/${database_name}"
+        printf "Dumping database: ${database_name}\n"
+        mysqldump ${credentials} -S ${software_data}/mysql.sock "${database_name}" > "${HOME}/SQL-dumps/${database_name}/${database_name}-$(date +'%Y-%m-%d--%H%M').sql"
+        if [ "$?" = "0" ]; then
+            printf "$(date +'%d-%H:%M') Database: ${database_name} dumped successfully.\n" > ${software_data}/.notifications/dump_success_db:${database_name}.notice
+        else
+            printf "$(date +'%Y-%m-%d--%H%M') Failed database dump: ${database_name}.\n" > ${software_data}/.notifications/dump_failure_db:${database_name}.error
+        fi
+    done
+    cd "${current}"
+else
+    printf "No ${mysql} databases found in ${software_data}"
+    return 1
+fi
